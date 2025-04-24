@@ -2,7 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 
 class QRCodeScanner extends StatefulWidget {
-  final Function(String code) onDetect; // função chamada quando o QR Code é detectado
+  final Function(String code)
+  onDetect; // função chamada quando o QR Code é detectado
   final MobileScannerController controller;
 
   const QRCodeScanner({
@@ -19,6 +20,10 @@ class _QRCodeScannerState extends State<QRCodeScanner>
     with SingleTickerProviderStateMixin {
   late AnimationController _animationController;
   late Animation<double> _position;
+
+  String? _lastQrcode;
+  DateTime?
+  _lastScan; // variável privada para armazenar o horário do último scaneamento
 
   @override
   void initState() {
@@ -61,8 +66,25 @@ class _QRCodeScannerState extends State<QRCodeScanner>
               onDetect: (capture) {
                 final barcode = capture.barcodes.first;
                 final String? code = barcode.rawValue;
-                if (code != null) {
+
+                if (code == null) return;
+
+                final now = DateTime.now();
+
+                // se o qrcode mudar, reinicia o timer
+                if (code != _lastQrcode) {
+                  _lastQrcode = code;
+                  _lastScan = now;
+                  return;
+                }
+
+                // se o qrcode não mudar durante 1 segundo, dispara o callback
+                if (_lastScan != null &&
+                    now.difference(_lastScan!).inMilliseconds >= 1000) {
                   widget.onDetect(code);
+
+                  _lastQrcode = null;
+                  _lastScan = null;
                 }
               },
             ),
