@@ -3,56 +3,67 @@ import 'package:mobile_scanner/mobile_scanner.dart';
 import 'package:front/qr_code_scanner.dart';
 import 'api.dart'; 
 
+// comunicação com a API
+class QRCodeValidator {
+  final Api _api = Api();
 
-class QRCodeScannerScreen extends StatefulWidget {
-  const QRCodeScannerScreen({Key? key}) : super(key: key);
-
-  @override
-  State<QRCodeScannerScreen> createState() => _QRCodeScannerScreenState();
+  // método para validar o QR Code com a API
+  Future<Map<String, dynamic>> validateQRCode(String code) async {
+    return await _api.validateStudent(code, 'flutter_app');
+  }
 }
 
-class _QRCodeScannerScreenState extends State<QRCodeScannerScreen> {
-  MobileScannerController cameraController = MobileScannerController();
-  String? scannedCode;
-  bool _dialogShown = false;
-  UniqueKey _scannerKey = UniqueKey(); // força o rebuild do scanner
-  final Api _api = Api(); // instância da classe api
-
-  // função para exibir o diálogo com o QR Code ou mensagem de validação
-  Future<void> _exibirDialogo(String code, {String? message}) async {
-    await cameraController.stop();
-    await Future.delayed(const Duration(milliseconds: 500));
-
+// classe para exibir o dialog
+class DialogService {
+  static Future<void> displayDialog(
+    BuildContext context,
+    String code,
+    {String? message, 
+    required Function onPressed}
+  ) async {
     await showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('QR Code encontrado'),
-        content: Text(message ?? code),
+        title: const Text(
+          'QR Code Encontrado',
+          style: TextStyle(fontSize: 24.0), 
+        ),
+        content: Text(
+          message ?? code, 
+          style: TextStyle(fontSize: 18.0), 
+        ),
         actions: [
           TextButton(
             onPressed: () {
               Navigator.of(context).pop(); // fecha o dialog
+              onPressed(); // executa a função de callback ao fechar
             },
             child: const Text(
               'Fechar',
-              style: TextStyle(fontFamily: "Roboto", color: Color.fromRGBO(26, 52, 141, 1)),
+              style: TextStyle(fontFamily: "Roboto", color: Color.fromRGBO(26, 52, 141, 1), fontSize: 18),
             ),
           ),
         ],
       ),
     );
-
-    // reinicia o scanner após fechar o dialog
-    setState(() {
-      _dialogShown = false;
-      scannedCode = null;
-      _scannerKey = UniqueKey(); // força o rebuild do scanner
-      cameraController.dispose();
-      cameraController = MobileScannerController();
-    });
-
-    await cameraController.start();
   }
+}
+
+class ScannerScreen extends StatefulWidget {
+  const ScannerScreen({Key? key}) : super(key: key);
+
+  @override
+  State<ScannerScreen> createState() => _ScannerScreenState();
+}
+
+class _ScannerScreenState extends State<ScannerScreen> {
+  MobileScannerController cameraController = MobileScannerController();
+  String? scannedCode;
+  bool _dialogShown = false;
+  UniqueKey _scannerKey = UniqueKey(); // força o rebuild do scanner
+  
+  // instância da classe de validação
+  final QRCodeValidator _validator = QRCodeValidator();
 
   // função chamada ao detectar um QR Code
   void _onCodeDetected(String code) async {
@@ -63,15 +74,40 @@ class _QRCodeScannerScreenState extends State<QRCodeScannerScreen> {
       _dialogShown = true;
     });
 
-    // chama o método validaraluno da api
+    await cameraController.stop();
+    await Future.delayed(const Duration(milliseconds: 500));
+
+    // chama o método validateQRCode da API através do validador
     try {
-      var response = await _api.validarAluno(code, 'flutter_app');
-      // exibe o resultado da API
-      _exibirDialogo(code, message: "${response['mensagem']}");
+      var response = await _validator.validateQRCode(code);
+      await DialogService.displayDialog(
+        context, 
+        code, 
+        message: "${response['mensagem']}",
+        onPressed: _restartScanner,
+      );
     } catch (e) {
-      // TODO: implementar verificação mais rigorosa se o aluno já foi cadastrado
-      _exibirDialogo(code, message: "Erro ao cadastrar código");
+      // TODO: Implementar verificação mais rigorosa se o aluno já foi cadastrado
+      await DialogService.displayDialog(
+        context, 
+        code, 
+        message: "Erro ao registrar aluno",
+        onPressed: _restartScanner,
+      );
     }
+  }
+
+  // função para reiniciar o scanner após fechar o dialog
+  void _restartScanner() {
+    setState(() {
+      _dialogShown = false;
+      scannedCode = null;
+      _scannerKey = UniqueKey(); // força o rebuild do scanner
+      cameraController.dispose();
+      cameraController = MobileScannerController();
+    });
+
+    cameraController.start();
   }
 
   @override

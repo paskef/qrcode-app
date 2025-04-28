@@ -8,7 +8,7 @@ class Api {
   final String apiToken = dotenv.env['API_TOKEN'] ?? '';
 
   // enviar dados como json
-  Future<Map<String, dynamic>> validarAluno(String ra, String nome) async {
+  Future<Map<String, dynamic>> validateStudent(String ra, String nome) async {
     var url = Uri.parse('$baseUrl/validar');
 
     // body da requisição

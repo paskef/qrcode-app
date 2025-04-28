@@ -6,6 +6,6 @@ Future<void> main() async {
   await dotenv.load();
   runApp(const MaterialApp(
     debugShowCheckedModeBanner: false,
-    home: QRCodeScannerScreen(),
+    home: ScannerScreen(),
   ));
 }
